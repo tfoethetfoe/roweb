@@ -31,6 +31,13 @@ console.log(`[db] ${ctx.db.kind}`);
 ctx.manifestSeed = await ctx.db.loadManifest();
 
 Object.assign(ctx, require('./lib/proxy')(ctx));
+// landing-page helpers + the private-repo vault. The vault resolves the
+// .ROBLOSECURITY token before sessions are created, so every session and
+// every upstream call uses it — the token never reaches the browser.
+ctx.public = require('./lib/roblox-public')(ctx);
+ctx.vault = require('./lib/vault')(ctx);
+await ctx.vault.loadToken();
+ctx.vault.startRefresh();
 Object.assign(ctx, require('./lib/sessions')(ctx));
 Object.assign(ctx, require('./lib/join')(ctx));
 ctx.serveStatic = require('./middleware/static')(ctx);

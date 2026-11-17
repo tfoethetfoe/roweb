@@ -1,116 +1,845 @@
 <!doctype html>
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>webport</title>
+<meta name="color-scheme" content="dark">
+<title>webport — play roblox in the browser</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236d8cff'/%3E%3Cpath d='M11 9v14l12-7z' fill='%23fff'/%3E%3C/svg%3E">
 <style>
-  :root { color-scheme: dark; }
+  :root {
+    color-scheme: dark;
+    --bg: #07080c;
+    --panel: #10121a;
+    --panel-2: #161925;
+    --line: rgba(255, 255, 255, .08);
+    --line-strong: rgba(255, 255, 255, .16);
+    --text: #eef1f8;
+    --muted: #929aad;
+    --dim: #6a7285;
+    --accent: #6d8cff;
+    --accent-2: #b06bff;
+    --good: #46d39a;
+    --bad: #ff7b72;
+    --radius: 18px;
+    --shadow: 0 18px 48px -18px rgba(0, 0, 0, .9);
+  }
   * { box-sizing: border-box; }
+  html, body { margin: 0; }
   body {
-    margin: 0; min-height: 100vh; display: grid; place-items: center;
-    background: #0b0d10; color: #e6e8eb;
-    font: 15px/1.5 ui-monospace, 'Cascadia Code', Consolas, monospace;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, Inter, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
-  main { width: min(400px, 92vw); }
-  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: .5px; }
-  .sub { color: #8b9199; font-size: 13px; margin-bottom: 24px; }
-  label { display: block; font-size: 12px; color: #8b9199; margin: 14px 0 5px; }
-  input, select {
-    width: 100%; padding: 10px 12px; border-radius: 8px;
-    border: 1px solid #2a2f36; background: #14171b; color: inherit;
-    font: inherit; outline: none;
+  body::before {
+    content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(900px 520px at 12% -10%, rgba(109, 140, 255, .20), transparent 70%),
+      radial-gradient(760px 420px at 92% 0%, rgba(176, 107, 255, .16), transparent 72%),
+      radial-gradient(600px 400px at 50% 110%, rgba(70, 211, 154, .07), transparent 70%);
   }
-  input:focus, select:focus { border-color: #4f7cff; }
-  button {
-    width: 100%; margin-top: 20px; padding: 12px; border: 0; border-radius: 8px;
-    background: #4f7cff; color: #fff; font: inherit; font-weight: 600;
-    cursor: pointer;
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  ::selection { background: rgba(109, 140, 255, .35); }
+  .mono { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; }
+
+  /* ---------- header ---------- */
+  .top {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 18px;
+    padding: 12px clamp(16px, 4vw, 40px);
+    background: rgba(7, 8, 12, .72);
+    backdrop-filter: blur(18px) saturate(140%);
+    border-bottom: 1px solid var(--line);
   }
-  button:hover { background: #5f87ff; }
-  button:disabled { opacity: .45; cursor: default; }
-  .err { color: #ff7b72; font-size: 13px; min-height: 18px; margin-top: 10px; }
-  .resume {
-    display: none; margin-bottom: 20px; padding: 14px;
-    border: 1px solid #2a2f36; border-radius: 8px; background: #14171b;
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 650; letter-spacing: -.2px; font-size: 16px; white-space: nowrap;
   }
-  .resume .sid { color: #8b9199; font-size: 12px; }
-  .resume button { margin-top: 10px; background: #21262d; }
-  .resume button:hover { background: #2a3038; }
-  .or { text-align: center; color: #565c64; font-size: 12px; margin: 14px 0 0; display: none; }
+  .brand .mark {
+    width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center;
+    background: linear-gradient(140deg, var(--accent), var(--accent-2));
+    box-shadow: 0 6px 18px -6px rgba(109, 140, 255, .9);
+  }
+  .brand .mark svg { width: 14px; height: 14px; }
+  .brand small { color: var(--dim); font-weight: 500; font-size: 12px; margin-left: 2px; }
+
+  .search { position: relative; flex: 1 1 auto; max-width: 520px; margin-inline: auto; }
+  .search svg {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    width: 17px; height: 17px; color: var(--dim); pointer-events: none;
+  }
+  .search input {
+    width: 100%; padding: 11px 74px 11px 40px; border-radius: 999px;
+    border: 1px solid var(--line); background: rgba(22, 25, 37, .82); color: var(--text);
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  .search input::placeholder { color: var(--dim); }
+  .search input:focus {
+    outline: none; border-color: rgba(109, 140, 255, .6);
+    box-shadow: 0 0 0 4px rgba(109, 140, 255, .14); background: rgba(26, 29, 43, .95);
+  }
+  .search kbd {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    font: 11px/1 ui-monospace, monospace; color: var(--dim);
+    border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px;
+  }
+  .search .clear {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    width: 26px; height: 26px; border: 0; border-radius: 50%; display: none;
+    background: rgba(255, 255, 255, .08); color: var(--muted); line-height: 1;
+  }
+  .search.busy input { padding-right: 96px; }
+  .search .spin {
+    display: none; position: absolute; right: 44px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, .16); border-top-color: var(--accent);
+    animation: spin .7s linear infinite;
+  }
+  .search.busy .spin { display: block; }
+  .search.has-value .clear { display: block; }
+  .search.has-value kbd { display: none; }
+
+  .session {
+    display: none; align-items: center; gap: 8px; padding: 8px 14px;
+    border-radius: 999px; border: 1px solid rgba(70, 211, 154, .35);
+    background: rgba(70, 211, 154, .10); color: #bff3da; font-size: 13px;
+    white-space: nowrap;
+  }
+  .session.show { display: inline-flex; }
+  .session .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+
+  /* ---------- layout ---------- */
+  main { max-width: 1180px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px) 80px; }
+  .hero { padding: clamp(34px, 6vw, 62px) 0 clamp(24px, 4vw, 34px); }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 12px;
+    color: #c3cdf5; background: rgba(109, 140, 255, .12);
+    border: 1px solid rgba(109, 140, 255, .25); padding: 5px 12px; border-radius: 999px;
+    margin-bottom: 18px;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    margin: 0; font-size: clamp(30px, 4.6vw, 46px); line-height: 1.08;
+    letter-spacing: -1.4px; font-weight: 680; max-width: 20ch;
+  }
+  h1 .grad {
+    background: linear-gradient(100deg, var(--accent) 8%, var(--accent-2) 55%, #8be6c0 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lede { color: var(--muted); max-width: 56ch; margin: 14px 0 0; font-size: 15.5px; }
+
+  .quick {
+    display: flex; gap: 10px; margin-top: 26px; max-width: 560px; flex-wrap: wrap;
+  }
+  .field {
+    flex: 1 1 240px; display: flex; align-items: center; gap: 10px;
+    padding: 4px 4px 4px 16px; border-radius: 14px;
+    border: 1px solid var(--line); background: rgba(16, 18, 26, .85);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field:focus-within { border-color: rgba(109, 140, 255, .55); box-shadow: 0 0 0 4px rgba(109, 140, 255, .12); }
+  .field label { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--dim); }
+  .field input {
+    flex: 1; min-width: 0; border: 0; background: none; padding: 12px 0;
+    font-family: ui-monospace, monospace; font-size: 14.5px; letter-spacing: .01em;
+  }
+  .field input:focus { outline: none; }
+  .field input::placeholder { color: var(--dim); font-family: system-ui, sans-serif; letter-spacing: 0; }
+  .btn {
+    border: 0; border-radius: 12px; padding: 13px 22px; font-weight: 620; font-size: 14.5px;
+    background: linear-gradient(140deg, var(--accent), #8f7bff); color: #fff;
+    box-shadow: 0 10px 26px -12px rgba(109, 140, 255, .95);
+    transition: filter .15s, transform .1s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(1px); }
+  .btn[disabled] { opacity: .55; cursor: progress; box-shadow: none; }
+  .btn.ghost {
+    background: rgba(255, 255, 255, .06); color: var(--text);
+    border: 1px solid var(--line); box-shadow: none;
+  }
+  .hint { color: var(--dim); font-size: 12.5px; margin-top: 12px; min-height: 18px; }
+  .hint b { color: var(--muted); font-weight: 560; }
+  .vault-note {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
+    font-size: 12.5px; color: #b9c6f6;
+  }
+  .vault-note svg { width: 14px; height: 14px; color: var(--accent); }
+
+  /* ---------- rows / cards ---------- */
+  .row { margin-top: 40px; }
+  .row-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  .row-head h2 { margin: 0; font-size: 18px; letter-spacing: -.3px; font-weight: 640; }
+  .row-head p { margin: 3px 0 0; color: var(--dim); font-size: 13px; }
+  .row-head .count { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  .link-btn {
+    border: 0; background: none; color: var(--dim); font-size: 12.5px; padding: 6px 8px;
+    border-radius: 8px;
+  }
+  .link-btn:hover { color: var(--text); background: rgba(255, 255, 255, .05); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 14px; }
+  .card {
+    position: relative; display: flex; flex-direction: column; text-align: left;
+    padding: 0; border: 1px solid var(--line); border-radius: var(--radius);
+    background: linear-gradient(180deg, var(--panel-2), #0d0f16);
+    overflow: hidden; transition: transform .18s, border-color .18s, box-shadow .18s;
+  }
+  .card:hover { transform: translateY(-4px); border-color: rgba(109, 140, 255, .45); box-shadow: var(--shadow); }
+  .card .thumb {
+    position: relative; display: block; aspect-ratio: 1 / 1; background: #0b0d13; overflow: hidden;
+  }
+  .card .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s ease; }
+  .card:hover .thumb img { transform: scale(1.045); }
+  .card .thumb.noicon { display: grid; place-items: center; }
+  .card .thumb .initials {
+    font-size: 24px; font-weight: 640; letter-spacing: -.5px;
+    color: rgba(255, 255, 255, .82);
+  }
+  .card .thumb::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(6, 7, 11, .82), rgba(6, 7, 11, 0) 55%);
+  }
+  .badge {
+    position: absolute; left: 9px; bottom: 9px; z-index: 2;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 560;
+    background: rgba(8, 10, 15, .68); border: 1px solid rgba(255, 255, 255, .12);
+    backdrop-filter: blur(6px); color: #e7eaf3;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
+  .card .body { display: block; padding: 11px 13px 14px; }
+  .card .name {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; font-size: 14px; font-weight: 580; letter-spacing: -.15px; line-height: 1.35;
+  }
+  .card .meta {
+    display: block; margin-top: 4px; color: var(--dim); font-size: 11.5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .card .go {
+    position: absolute; top: 9px; right: 9px; z-index: 2;
+    width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    background: linear-gradient(140deg, var(--accent), var(--accent-2));
+    opacity: 0; transform: scale(.85); transition: opacity .18s, transform .18s;
+    box-shadow: 0 8px 18px -8px rgba(0, 0, 0, .9);
+  }
+  .card .go svg { width: 12px; height: 12px; margin-left: 1px; }
+  .card:hover .go, .card:focus-visible .go { opacity: 1; transform: scale(1); }
+
+  .skeleton { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+  .skeleton .thumb { aspect-ratio: 1 / 1; }
+  .skeleton .body { padding: 12px 13px 16px; display: grid; gap: 8px; }
+  .skeleton i {
+    display: block; border-radius: 6px; background: rgba(255, 255, 255, .06);
+    background-image: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .07) 40%, transparent 60%);
+    background-size: 220% 100%; animation: shimmer 1.25s infinite linear;
+  }
+  .skeleton .thumb i { width: 100%; height: 100%; border-radius: 0; }
+  .skeleton .l1 { height: 11px; width: 82%; }
+  .skeleton .l2 { height: 9px; width: 52%; }
+
+  /* history strip */
+  .strip { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: thin; }
+  .strip::-webkit-scrollbar { height: 8px; }
+  .strip::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .12); border-radius: 99px; }
+  .hist {
+    flex: 0 0 auto; width: 154px; display: flex; align-items: center; gap: 10px;
+    padding: 9px; border-radius: 14px; border: 1px solid var(--line);
+    background: rgba(22, 25, 37, .6); text-align: left;
+    transition: border-color .15s, background .15s;
+  }
+  .hist:hover { border-color: rgba(109, 140, 255, .4); background: rgba(30, 34, 50, .8); }
+  .hist img, .hist .ph {
+    width: 38px; height: 38px; border-radius: 10px; object-fit: cover; flex: 0 0 auto;
+    background: rgba(255, 255, 255, .07); display: grid; place-items: center;
+    font-size: 12px; font-weight: 620; color: var(--muted);
+  }
+  .hist .txt { min-width: 0; }
+  .hist .txt b { display: block; font-size: 12.5px; font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist .txt span { display: block; font-size: 11px; color: var(--dim); font-family: ui-monospace, monospace; }
+
+  /* states */
+  .state {
+    padding: 34px 20px; text-align: center; color: var(--muted); font-size: 14px;
+    border: 1px dashed var(--line-strong); border-radius: var(--radius);
+    background: rgba(16, 18, 26, .5);
+  }
+  .state b { color: var(--text); display: block; margin-bottom: 4px; font-weight: 600; }
+  .state .btn { margin-top: 14px; }
+
+  footer {
+    border-top: 1px solid var(--line); margin-top: 56px; padding: 22px 0 0;
+    color: var(--dim); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 8px 18px;
+    align-items: center;
+  }
+  footer code { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; }
+
+  /* ---------- play sheet ---------- */
+  .sheet {
+    position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+    padding: 20px; background: rgba(4, 5, 8, .72); backdrop-filter: blur(10px);
+    animation: fade .16s ease-out;
+  }
+  .sheet[hidden] { display: none; }
+  .sheet .panel {
+    width: min(430px, 100%); background: linear-gradient(180deg, #171a25, #0f1118);
+    border: 1px solid var(--line-strong); border-radius: 22px; padding: 22px;
+    box-shadow: 0 40px 90px -30px rgba(0, 0, 0, .95); animation: pop .18s ease-out;
+  }
+  .sheet .head { display: flex; align-items: center; gap: 13px; margin-bottom: 18px; }
+  .sheet .head img, .sheet .head .ph {
+    width: 54px; height: 54px; border-radius: 14px; object-fit: cover;
+    background: rgba(255, 255, 255, .07); display: grid; place-items: center; font-weight: 640;
+  }
+  .sheet h3 { margin: 0; font-size: 16.5px; letter-spacing: -.2px; }
+  .sheet .sub { color: var(--dim); font-size: 12.5px; margin-top: 2px; }
+  .sheet .x {
+    margin-left: auto; width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .04); color: var(--muted); line-height: 1;
+  }
+  .sheet .x:hover { color: var(--text); background: rgba(255, 255, 255, .09); }
+  .sheet label { display: block; font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 14px 0 6px; }
+  .sheet input, .sheet select {
+    width: 100%; padding: 11px 13px; border-radius: 12px; border: 1px solid var(--line);
+    background: rgba(9, 11, 17, .9); color: var(--text);
+  }
+  .sheet input:focus, .sheet select:focus { outline: none; border-color: rgba(109, 140, 255, .55); box-shadow: 0 0 0 3px rgba(109, 140, 255, .12); }
+  .sheet .note { color: var(--dim); font-size: 12px; margin-top: 10px; line-height: 1.5; }
+  .sheet .actions { display: flex; gap: 10px; margin-top: 20px; }
+  .sheet .actions .btn { flex: 1; justify-content: center; }
+  .sheet .err { color: var(--bad); font-size: 12.5px; margin-top: 10px; min-height: 16px; }
+
+  /* ---------- toast ---------- */
+  .toasts {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+    z-index: 90; display: grid; gap: 8px; width: min(420px, 90vw);
+  }
+  .toast {
+    padding: 11px 15px; border-radius: 12px; font-size: 13.5px;
+    background: rgba(24, 27, 39, .97); border: 1px solid var(--line-strong);
+    box-shadow: 0 20px 40px -20px rgba(0, 0, 0, .9); animation: pop .18s ease-out;
+  }
+  .toast.bad { border-color: rgba(255, 123, 114, .45); color: #ffd9d6; }
+
+  @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+  @keyframes shimmer { to { background-position: -120% 0; } }
+  @keyframes fade { from { opacity: 0 } }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.985) } }
+
+  @media (max-width: 760px) {
+    .top { flex-wrap: wrap; gap: 10px; }
+    .search { order: 3; flex-basis: 100%; max-width: none; }
+    .session { margin-left: auto; }
+    .brand small { display: none; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 11px; }
+    .hero { padding-top: 26px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  }
 </style>
-<main>
-  <h1>webport</h1>
-  <div class="sub">roblox in the browser</div>
 
-  <div class="resume" id="resume">
-    <div>active session</div>
-    <div class="sid" id="resume-sid"></div>
-    <button id="resume-btn">resume</button>
+<header class="top">
+  <div class="brand">
+    <span class="mark" aria-hidden="true">
+      <svg viewBox="0 0 16 16" fill="#fff"><path d="M4.5 2.5v11L13.5 8z"/></svg>
+    </span>
+    webport <small>roblox in the browser</small>
   </div>
-  <div class="or" id="or">— or new —</div>
 
-  <form id="f">
-    <label for="place">place id</label>
-    <input id="place" inputmode="numeric" placeholder="1818" autocomplete="off" required>
+  <div class="search" id="searchwrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+    </svg>
+    <input id="q" type="search" placeholder="Search games…" autocomplete="off"
+           spellcheck="false" aria-label="Search games" enterkeyhint="search">
+    <span class="spin" aria-hidden="true"></span>
+    <kbd>/</kbd>
+    <button class="clear" id="qclear" type="button" aria-label="Clear search">✕</button>
+  </div>
 
-    <label for="token" id="token-label">.ROBLOSECURITY</label>
-    <input id="token" type="password" autocomplete="off" spellcheck="false">
+  <a class="session" id="session" href="#"><span class="dot"></span>Resume session</a>
+</header>
 
-    <label for="method">join method</label>
-    <select id="method">
-      <option value="">auto</option>
-      <option value="web">web</option>
-      <option value="desktop">desktop</option>
-    </select>
+<main>
+  <section class="hero">
+    <div class="eyebrow"><span class="dot"></span><span id="server-state">self-hosted engine · real servers</span></div>
+    <h1>Play Roblox <span class="grad">right here</span>, in your browser.</h1>
+    <p class="lede">Real joins, real servers, nothing to install. Search for a game, pick one below,
+      or drop in a place id and go.</p>
 
-    <button id="go" type="submit">play</button>
-  </form>
-  <div class="err" id="err"></div>
+    <form class="quick" id="quick">
+      <div class="field">
+        <label for="place">place</label>
+        <input id="place" inputmode="numeric" autocomplete="off" placeholder="1818"
+               aria-label="Place id">
+      </div>
+      <button class="btn" id="go" type="submit">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M4 2v12l10-6z"/></svg>
+        Play
+      </button>
+    </form>
+    <div class="hint" id="placehint"></div>
+    <div class="vault-note" id="vaultnote" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+      </svg>
+      <span id="vaulttext"></span>
+    </div>
+  </section>
+
+  <section class="row" id="history-row" hidden>
+    <div class="row-head">
+      <div><h2>Recently played</h2><p>Picked up from this browser</p></div>
+      <button class="link-btn" id="history-clear" type="button">Clear history</button>
+    </div>
+    <div class="strip" id="history"></div>
+  </section>
+
+  <section class="row" id="results-row" hidden>
+    <div class="row-head">
+      <div><h2 id="results-title">Results</h2><p id="results-sub"></p></div>
+      <span class="count" id="results-count"></span>
+    </div>
+    <div class="grid" id="results"></div>
+  </section>
+
+  <div id="catalog"></div>
+
+  <footer>
+    <span>webport · <code>index.mjs</code></span>
+    <span>catalog from your private repo or <code>server/catalog/</code></span>
+    <span>your token never leaves the server</span>
+  </footer>
 </main>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="panel" role="document">
+    <div class="head">
+      <span id="sheet-thumb"></span>
+      <div>
+        <h3 id="sheet-title">Play</h3>
+        <div class="sub" id="sheet-sub"></div>
+      </div>
+      <button class="x" id="sheet-close" type="button" aria-label="Close">✕</button>
+    </div>
+
+    <form id="sheet-form">
+      <div id="token-block">
+        <label for="token">.ROBLOSECURITY</label>
+        <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="_|WARNING:…">
+      </div>
+
+      <label for="method">Join method</label>
+      <select id="method">
+        <option value="">auto (recommended)</option>
+        <option value="web">web</option>
+        <option value="desktop">desktop</option>
+      </select>
+
+      <div class="note" id="sheet-note"></div>
+      <div class="err" id="sheet-err"></div>
+      <div class="actions">
+        <button class="btn ghost" id="sheet-cancel" type="button">Cancel</button>
+        <button class="btn" id="sheet-play" type="submit">Play</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
 <script>
 const $ = id => document.getElementById(id);
-const place = $('place'), token = $('token'), err = $('err');
+const HKEY = 'rh_history_v1';
+const state = {
+  defaultToken: false,
+  vault: null,
+  resume: null,
+  catalog: null,
+  history: [],
+  query: '',
+  pending: null,       // game waiting in the play sheet
+  searchSeq: 0,
+};
 
-place.value = localStorage.getItem('rh_place') || '';
+// ---------- small helpers ----------
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// session state — resume card + whether the server already holds a token
-let def = { defaultToken: false };
-try {
-  const r = await fetch('/pg', { credentials: 'include' });
-  def = await r.json();
-  if (def && def.sid) {
-    $('resume').style.display = 'block';
-    $('or').style.display = 'block';
-    $('resume-sid').textContent = def.sid + (def.placeId ? ` · place ${def.placeId}` : '');
-    $('resume-btn').onclick = () => location.href = def.url;
+function compact(n) {
+  n = Number(n) || 0;
+  if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(n);
+}
+function initials(name) {
+  return String(name || '?').replace(/[^\p{L}\p{N} ]/gu, '').trim().split(/\s+/)
+    .slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?';
+}
+function toast(msg, bad) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (bad ? ' bad' : '');
+  t.textContent = msg;
+  $('toasts').appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; }, 3600);
+  setTimeout(() => t.remove(), 4000);
+}
+const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+
+// ---------- history ----------
+function readHistory() {
+  try {
+    const a = JSON.parse(localStorage.getItem(HKEY) || '[]');
+    return Array.isArray(a) ? a.filter(x => x && x.placeId) : [];
+  } catch { return []; }
+}
+function saveHistory(list) {
+  state.history = list.slice(0, 18);
+  try { localStorage.setItem(HKEY, JSON.stringify(state.history)); } catch {}
+  renderHistory();
+}
+function pushHistory(game) {
+  if (!game || !game.placeId) return;
+  const entry = {
+    placeId: +game.placeId,
+    name: game.name || `Place ${game.placeId}`,
+    icon: game.icon || '',
+    universeId: game.universeId || null,
+    at: Date.now(),
+  };
+  saveHistory([entry, ...readHistory().filter(x => +x.placeId !== entry.placeId)]);
+}
+function renderHistory() {
+  const row = $('history-row');
+  if (!state.history.length) { row.hidden = true; return; }
+  row.hidden = false;
+  $('history').innerHTML = state.history.map(g => `
+    <button class="hist" type="button" data-history='${esc(JSON.stringify({
+      placeId: g.placeId, name: g.name, icon: g.icon, universeId: g.universeId,
+    }))}'>
+      ${g.icon ? `<img src="${esc(g.icon)}" alt="" loading="lazy">`
+               : `<span class="ph">${esc(initials(g.name))}</span>`}
+      <span class="txt"><b>${esc(g.name)}</b><span>${esc(g.placeId)}</span></span>
+    </button>`).join('');
+}
+
+// ---------- game cards ----------
+function cardHtml(game, badge) {
+  const name = esc(game.name || `Place ${game.placeId}`);
+  const icon = game.icon
+    ? `<img src="${esc(game.icon)}" alt="" loading="lazy" onerror="this.remove()">`
+    : '';
+  const meta = [game.creator, game.tag].filter(Boolean).join(' · ') || `place ${game.placeId}`;
+  const players = game.players || badge === 'players';
+  return `<button class="card" type="button" data-game='${esc(JSON.stringify({
+    placeId: game.placeId, name: game.name, icon: game.icon, universeId: game.universeId,
+  }))}'>
+    <span class="thumb${game.icon ? '' : ' noicon'}">${game.icon ? icon : `<span class="initials">${esc(initials(game.name))}</span>`}
+      ${players ? `<span class="badge"><span class="dot"></span>${compact(game.players)} playing</span>` : ''}
+    </span>
+    <span class="body">
+      <span class="name">${name}</span>
+      <span class="meta">${esc(meta)}</span>
+    </span>
+    <span class="go" aria-hidden="true"><svg viewBox="0 0 16 16" fill="#fff"><path d="M4 2v12l10-6z"/></svg></span>
+  </button>`;
+}
+function skeletonGrid(n) {
+  return Array.from({ length: n }, () =>
+    `<div class="skeleton"><div class="thumb"><i></i></div>
+      <div class="body"><i class="l1"></i><i class="l2"></i></div></div>`).join('');
+}
+
+// ---------- catalog ----------
+async function loadStatus() {
+  try {
+    const j = await (await fetch('/api/status', { credentials: 'include' })).json();
+    state.defaultToken = !!j.defaultToken;
+    state.vault = j.vault || null;
+    state.resume = j.resume || null;
+    if (state.resume) {
+      const a = $('session');
+      a.href = state.resume.url;
+      a.classList.add('show');
+    }
+    if (state.vault && state.vault.tokenLoaded) {
+      $('vaultnote').hidden = false;
+      $('vaulttext').textContent = 'Signed in with the token from your private repo — it never reaches this page.';
+      $('server-state').textContent = 'signed in · token held server-side';
+    } else if (state.vault && state.vault.configured) {
+      $('vaultnote').hidden = false;
+      $('vaulttext').textContent = 'Private repo configured — no token loaded yet, you can paste one when you play.';
+    }
+  } catch {
+    // older server build without /api/status — fall back to /pg
+    try {
+      const j = await (await fetch('/pg', { credentials: 'include' })).json();
+      state.defaultToken = !!j.defaultToken;
+      if (j.sid) {
+        const a = $('session');
+        a.href = j.url; a.classList.add('show');
+      }
+    } catch {}
   }
-} catch {}
-$('token-label').textContent =
-  '.ROBLOSECURITY' + (def.defaultToken ? ' (blank = server default)' : '');
-if (!def.defaultToken) token.required = true;
+}
 
-$('f').onsubmit = async e => {
-  e.preventDefault();
-  err.textContent = '';
-  const gid = +place.value;
-  if (!gid) { err.textContent = 'place id required'; return; }
-  $('go').disabled = true;
-  localStorage.setItem('rh_place', place.value);
+async function loadCatalog() {
+  const host = $('catalog');
+  host.innerHTML = ['', ''].map(() => `
+    <section class="row"><div class="row-head"><div><h2>Loading…</h2></div></div>
+      <div class="grid">${skeletonGrid(6)}</div></section>`).join('');
+  let data;
+  try {
+    data = await (await fetch('/api/catalog', { credentials: 'include' })).json();
+  } catch (e) {
+    host.innerHTML = `<section class="row"><div class="state">
+      <b>Could not load the game catalog</b>${esc(e.message || 'network error')}
+      <div><button class="btn ghost" id="catalog-retry" type="button">Try again</button></div>
+    </div></section>`;
+    const b = $('catalog-retry'); if (b) b.onclick = loadCatalog;
+    return;
+  }
+  state.catalog = data;
+  const sections = (data.sections || []).filter(s => s && s.games && s.games.length);
+  if (!sections.length) {
+    host.innerHTML = `<section class="row"><div class="state">
+      <b>No games in the catalog yet</b>
+      Add a JSON file to <code>catalog/</code> in your private repo (or <code>server/catalog/</code>) with
+      <code>{ "title": "Recommended", "games": [{ "name": "…", "placeId": 1818, "icon": "…" }] }</code>.
+    </div></section>`;
+    return;
+  }
+  host.innerHTML = sections.map(s => `
+    <section class="row">
+      <div class="row-head">
+        <div><h2>${esc(s.title)}</h2>${s.subtitle ? `<p>${esc(s.subtitle)}</p>` : ''}</div>
+        <span class="count">${s.games.length} ${s.games.length === 1 ? 'game' : 'games'}</span>
+      </div>
+      <div class="grid">${s.games.map(g => cardHtml(g, 'players')).join('')}</div>
+    </section>`).join('');
+  if (data.source === 'local' && data.configured === false) {
+    // quiet by design: local files are the documented fallback
+  }
+}
+
+// ---------- search ----------
+let searchTimer = null;
+function setSearchBusy(on) {
+  $('searchwrap').classList.toggle('busy', !!on);
+}
+function clearSearch() {
+  $('q').value = '';
+  $('searchwrap').classList.remove('has-value');
+  $('results-row').hidden = true;
+  state.query = '';
+  setSearchBusy(false);
+  $('q').focus();
+}
+async function runSearch(raw) {
+  const q = String(raw || '').trim();
+  state.query = q;
+  $('searchwrap').classList.toggle('has-value', !!q);
+  if (q.length < 2) {
+    $('results-row').hidden = true;
+    setSearchBusy(false);
+    return;
+  }
+  const seq = ++state.searchSeq;
+  $('results-row').hidden = false;
+  $('results-title').textContent = `Results for “${q}”`;
+  $('results-sub').textContent = 'Live search across the site';
+  $('results-count').textContent = '';
+  $('results').innerHTML = skeletonGrid(12);
+  setSearchBusy(true);
+  try {
+    const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+    const j = await r.json();
+    if (seq !== state.searchSeq) return;                 // a newer query won
+    if (!r.ok) throw new Error(j.error || `search failed (${r.status})`);
+    const results = j.results || [];
+    $('results-count').textContent = `${results.length} ${results.length === 1 ? 'result' : 'results'}`;
+    if (!results.length) {
+      $('results').innerHTML = `<div class="state" style="grid-column:1/-1">
+        <b>No games matched “${esc(q)}”</b>Try a shorter search, or paste a place id up top.</div>`;
+    } else {
+      $('results').innerHTML = results.map(g => cardHtml(g, 'players')).join('');
+    }
+  } catch (e) {
+    if (seq !== state.searchSeq) return;
+    $('results').innerHTML = `<div class="state" style="grid-column:1/-1">
+      <b>Search unavailable</b>${esc(e.message || 'network error')}
+      <div><button class="btn ghost" id="search-retry" type="button">Try again</button></div></div>`;
+    const b = $('search-retry'); if (b) b.onclick = () => runSearch(state.query);
+  } finally {
+    if (seq === state.searchSeq) setSearchBusy(false);
+  }
+}
+
+// ---------- play ----------
+function setBusy(busy) {
+  ['go', 'sheet-play'].forEach(id => { const b = $(id); if (b) b.disabled = !!busy; });
+}
+
+async function launch(game, opts = {}) {
+  const placeId = +(game.placeId || 0);
+  if (!placeId) { toast('A place id is required', true); return; }
+  setBusy(true);
   try {
     const r = await fetch('/pg', {
       method: 'POST', credentials: 'include',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        placeId: gid,
-        token: token.value || undefined,
-        joinMethod: $('method').value || undefined,
+        placeId,
+        token: opts.token || undefined,
+        joinMethod: opts.joinMethod || undefined,
       }),
     });
-    const j = await r.json();
+    const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.url) throw new Error(j.error || `server ${r.status}`);
+    pushHistory(game);
     location.href = j.url;
-  } catch (x) {
-    err.textContent = x.message;
-    $('go').disabled = false;
+  } catch (e) {
+    setBusy(false);
+    toast(e.message || 'could not start the session', true);
+    $('sheet-err').textContent = e.message || '';
   }
+}
+
+function openSheet(game) {
+  state.pending = game;
+  $('sheet-err').textContent = '';
+  $('sheet-title').textContent = game.name || `Place ${game.placeId}`;
+  $('sheet-sub').textContent = game.creator || `place ${game.placeId}`;
+  $('sheet-thumb').innerHTML = game.icon
+    ? `<img src="${esc(game.icon)}" alt="" onerror="this.remove()">`
+    : `<span class="ph">${esc(initials(game.name))}</span>`;
+  const needToken = !state.defaultToken;
+  $('token-block').hidden = !needToken;
+  $('sheet-note').textContent = needToken
+    ? 'Your token goes straight to this server and stays there — it is never stored in the browser. Tip: put it in your private repo once and this field disappears.'
+    : 'Using the token from your private repo. Nothing to type.';
+  $('sheet').hidden = false;
+  setTimeout(() => (needToken ? $('token') : $('sheet-play')).focus(), 40);
+}
+function closeSheet() {
+  $('sheet').hidden = true;
+  state.pending = null;
+}
+
+function play(game, opts = {}) {
+  if (!game || !game.placeId) return;
+  if (state.defaultToken) return launch(game, opts);
+  openSheet(game);
+}
+
+// ---------- place id form ----------
+let placeTimer = null;
+async function previewPlace(id) {
+  if (!id || String(id).length < 2) { $('placehint').innerHTML = ''; return; }
+  $('placehint').textContent = 'looking up place…';
+  const info = await withTimeout(
+    fetch(`/api/place?id=${encodeURIComponent(id)}`).then(r => r.json()).catch(() => null), 2600);
+  if (!$('place').value || +$('place').value !== +id) return;   // stale
+  if (!info || !info.name) { $('placehint').textContent = ''; return; }
+  $('placehint').innerHTML = `<b>${esc(info.name)}</b>` +
+    (info.players ? ` · ${compact(info.players)} playing` : '') +
+    (info.creator ? ` · by ${esc(info.creator)}` : '');
+  state.hintGame = info;
+}
+
+// ---------- events ----------
+document.addEventListener('click', e => {
+  const card = e.target.closest('.card[data-game]');
+  if (card) {
+    let g = {};
+    try { g = JSON.parse(card.dataset.game); } catch {}
+    play(g);
+    return;
+  }
+  const hist = e.target.closest('.hist[data-history]');
+  if (hist) {
+    let g = {};
+    try { g = JSON.parse(hist.dataset.history); } catch {}
+    play(g);
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) {
+    e.preventDefault();
+    $('q').focus();
+  }
+  if (e.key === 'Escape') {
+    if (!$('sheet').hidden) closeSheet();
+    else if (document.activeElement === $('q')) { if (state.query) clearSearch(); else $('q').blur(); }
+  }
+});
+
+$('q').addEventListener('input', e => {
+  const v = e.target.value;
+  $('searchwrap').classList.toggle('has-value', !!v);
+  clearTimeout(searchTimer);
+  if (!v.trim()) { state.query = ''; $('results-row').hidden = true; state.searchSeq++; setSearchBusy(false); return; }
+  setSearchBusy(true);
+  searchTimer = setTimeout(() => runSearch(v), 280);
+});
+$('q').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimer); runSearch(e.target.value); }
+  if (e.key === 'Escape' && !e.target.value) e.target.blur();
+});
+$('qclear').onclick = clearSearch;
+
+$('place').addEventListener('input', e => {
+  clearTimeout(placeTimer);
+  const v = e.target.value.trim();
+  localStorage.setItem('rh_place', v);
+  if (!v) { $('placehint').innerHTML = ''; return; }
+  placeTimer = setTimeout(() => previewPlace(v), 450);
+});
+
+$('quick').addEventListener('submit', e => {
+  e.preventDefault();
+  const id = +$('place').value;
+  if (!id) { $('place').focus(); toast('Enter a place id first', true); return; }
+  const known = state.hintGame && +state.hintGame.placeId === id ? state.hintGame : null;
+  localStorage.setItem('rh_place', String(id));
+  if (known) play(known);
+  else play({ placeId: id, name: `Place ${id}` });
+});
+
+$('sheet-form').addEventListener('submit', e => {
+  e.preventDefault();
+  if (!state.pending) return;
+  const token = $('token').value.trim();
+  if (!state.defaultToken && !token) {
+    $('sheet-err').textContent = 'Paste your .ROBLOSECURITY, or add it to your private repo.';
+    return;
+  }
+  launch(state.pending, { token, joinMethod: $('method').value || undefined });
+});
+$('sheet-close').onclick = closeSheet;
+$('sheet-cancel').onclick = closeSheet;
+$('sheet').addEventListener('click', e => { if (e.target === $('sheet')) closeSheet(); });
+
+$('history-clear').onclick = () => {
+  saveHistory([]);
+  toast('History cleared');
 };
+
+// ---------- boot ----------
+(async () => {
+  $('place').value = localStorage.getItem('rh_place') || '';
+  state.history = readHistory();
+  renderHistory();
+  await loadStatus();
+  loadCatalog();
+})();
 </script>
+</html>

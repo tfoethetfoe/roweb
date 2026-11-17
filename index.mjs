@@ -126,7 +126,7 @@ export async function launch(opts = {}) {
     h.sid = s.sid;
     h.playUrl = s.playUrl;
   } else {
-    h.playUrl = s.url;
+    h.playUrl = h.url;
   }
   return h;
 }

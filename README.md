@@ -76,6 +76,55 @@ personal use). A `postgres://` URL switches to postgres for bigger
 deployments (`npm i pg`). Stores cache-manifest + session metadata only —
 never tokens.
 
+### Private vault (token + catalog)
+
+Keep the account token and the landing-page game catalog in a **private**
+GitHub repo instead of `cnfg.json` and the local files:
+
+```json
+"github": {
+  "repo": "you/roweb-private",
+  "token": "<fine-grained PAT — Contents: read>",
+  "tokenPath": "secret/roblox-token.txt",
+  "catalogPath": "catalog"
+}
+```
+
+`secret/roblox-token.txt` holds the `.ROBLOSECURITY` value. The server reads
+it at boot — and re-reads it every `cacheMs` (default 60s) so a rotated token
+is picked up without a restart — and only ever uses it server-side: once it is
+loaded the landing page shows no token field, and nothing about the token or
+the PAT is sent to the browser. A read failure is not fatal; the server falls
+back to `robloxAuthToken` and `server/catalog/`.
+
+Every `catalog/*.json` file in that repo becomes a row on the landing page:
+
+```json
+{
+  "title": "Recommended",
+  "subtitle": "Hand-picked classics",
+  "games": [
+    { "name": "Crossroads", "placeId": 1818, "icon": "https://…",
+      "description": "…", "tag": "Fighting", "creator": "Roblox" }
+  ]
+}
+```
+
+`name` and `placeId` are required; `icon`, `description`, `tag`, `creator`,
+`players` and `universeId` are optional (a missing icon is resolved from the
+public thumbnails API). File name = row id, so `recommended.json` and
+`popular.json` sort first. Env equivalents: `GH_VAULT_REPO`,
+`GH_VAULT_TOKEN`, `GH_VAULT_BRANCH`, `GH_VAULT_TOKEN_PATH`,
+`GH_CATALOG_PATH`, `GH_VAULT_TTL`.
+
+### Vercel
+
+`vercel.json` serves the landing UI as static output and proxies `/pg`,
+`/api/*` and the engine asset paths to a running webport host — put that
+host in the rewrite destinations. The game server itself (UDP WebTransport,
+Python front, long-lived sessions) needs a real host; Vercel is only the
+front door.
+
 ## Layout
 
 ```

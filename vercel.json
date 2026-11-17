@@ -1,0 +1,32 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "trailingSlash": false,
+  "headers": [
+    {
+      "source": "/",
+      "headers": [
+        { "key": "cache-control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "x-frame-options", "value": "SAMEORIGIN" },
+        { "key": "referrer-policy", "value": "no-referrer" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [{ "key": "cache-control", "value": "no-store" }]
+    }
+  ],
+  "rewrites": [
+    { "source": "/", "destination": "/server/landing.html" },
+    { "source": "/play", "destination": "/server/landing.html" },
+
+    { "source": "/pg", "destination": "https://YOUR-ROWPORT-HOST:9989/pg" },
+    { "source": "/pg/:path*", "destination": "https://YOUR-ROWPORT-HOST:9989/pg/:path*" },
+    { "source": "/api/:path*", "destination": "https://YOUR-ROWPORT-HOST:9989/api/:path*" },
+    { "source": "/webclient/:path*", "destination": "https://YOUR-ROWPORT-HOST:9989/webclient/:path*" },
+    { "source": "/wt-meta.json", "destination": "https://YOUR-ROWPORT-HOST:9989/wt-meta.json" },
+    { "source": "/stats", "destination": "https://YOUR-ROWPORT-HOST:9989/stats" },
+    { "source": "/session", "destination": "https://YOUR-ROWPORT-HOST:9989/session" },
+    { "source": "/udmux", "destination": "https://YOUR-ROWPORT-HOST:9989/udmux" }
+  ]
+}

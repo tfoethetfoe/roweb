@@ -13,6 +13,19 @@
   },
   "warpProxies": [],
 
+  // private config repo — the .ROBLOSECURITY token and the landing-page game
+  // catalog live here, read server-side only. "token" is a fine-grained PAT
+  // with Contents: read (or set GH_VAULT_TOKEN). Remove the block to use
+  // cnfg.json's robloxAuthToken + server/catalog/ instead.
+  "github": {
+    "repo": "<owner/private-repo>",
+    "token": "<fine-grained PAT — Contents: read>",
+    "branch": "",
+    "tokenPath": "secret/roblox-token.txt",
+    "catalogPath": "catalog",
+    "cacheMs": 60000
+  },
+
   // persistence — empty (or missing) = sqlite at server/data/webport.db.
   // postgres://user:pass@host/db switches to postgres (needs: npm i pg)
   "database": ""
